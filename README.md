@@ -145,3 +145,7 @@ ok      rubiks-solver/internal/solver   1.816s  coverage: 100.0% of statements
 The engine implements Kociemba's Two-Phase heuristic search mapping coordinate spaces into sub-groups rather than raw element pieces. 
 
 To prevent multi-second UI main thread stumbles inside a standard browser runtime environment, the iteration relies on a **First-Available Solution Transition strategy**. This design guarantees near-instantaneous query updates (**~40ms**) across deep scrambles by making an engineering compromise: sacrificing perfect move optimization on ultra-short sequences (1-2 moves) in favor of high performance under real-world usage.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
