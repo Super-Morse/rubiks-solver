@@ -9,6 +9,9 @@ WebAssembly.instantiateStreaming(fetch("solver.wasm"), go.importObject).then((re
     document.getElementById("status").style.color = "#ff9800";
     document.getElementById("solveBtn").disabled = false;
     console.log("✅ WASM Engine loaded successfully!");
+
+    // Check if cube state was passed from camera scanner
+    initScannedStateIfPresent();
 }).catch(err => {
     console.error("❌ Failed to load WASM:", err);
     document.getElementById("status").innerText = "Failed to load engine.";
@@ -98,7 +101,6 @@ const faceDefinitions = {
 
 function processQueue() {
     if (moveQueue.length === 0) {
-        // If queue is empty, enable buttons
         document.getElementById("solveBtn").disabled = false;
         document.getElementById("randomBtn").disabled = false;
         return;
@@ -107,7 +109,6 @@ function processQueue() {
 
     isAnimating = true;
     
-    // Disable buttons while animating
     document.getElementById("solveBtn").disabled = true;
     document.getElementById("randomBtn").disabled = true;
 
@@ -160,18 +161,70 @@ function processQueue() {
             scene.remove(pivot);
             isAnimating = false;
             
-            setTimeout(processQueue, 30); // Pause between moves
+            setTimeout(processQueue, 30);
         }
     }
     animateRotation();
 }
 
-// --- 4. APP LOGIC & UI BINDINGS ---
+// --- 4. 54-FACELET TO 3D CUBIE COLOR MAPPING ---
+// Maps each Kociemba facelet (0..53) to (x, y, z) and material face index
+const faceletToCubieMap = [
+    // U Face (0..8, material index 2: +Y)
+    {x:-1, y:1, z:-1, mat:2}, {x:0, y:1, z:-1, mat:2}, {x:1, y:1, z:-1, mat:2},
+    {x:-1, y:1, z:0,  mat:2}, {x:0, y:1, z:0,  mat:2}, {x:1, y:1, z:0,  mat:2},
+    {x:-1, y:1, z:1,  mat:2}, {x:0, y:1, z:1,  mat:2}, {x:1, y:1, z:1,  mat:2},
 
+    // R Face (9..17, material index 0: +X)
+    {x:1, y:1, z:1,   mat:0}, {x:1, y:1, z:0,   mat:0}, {x:1, y:1, z:-1,  mat:0},
+    {x:1, y:0, z:1,   mat:0}, {x:1, y:0, z:0,   mat:0}, {x:1, y:0, z:-1,  mat:0},
+    {x:1, y:-1, z:1,  mat:0}, {x:1, y:-1, z:0,  mat:0}, {x:1, y:-1, z:-1, mat:0},
+
+    // F Face (18..26, material index 4: +Z)
+    {x:-1, y:1, z:1,  mat:4}, {x:0, y:1, z:1,  mat:4}, {x:1, y:1, z:1,  mat:4},
+    {x:-1, y:0, z:1,  mat:4}, {x:0, y:0, z:1,  mat:4}, {x:1, y:0, z:1,  mat:4},
+    {x:-1, y:-1, z:1, mat:4}, {x:0, y:-1, z:1, mat:4}, {x:1, y:-1, z:1, mat:4},
+
+    // D Face (27..35, material index 3: -Y)
+    {x:-1, y:-1, z:1,  mat:3}, {x:0, y:-1, z:1,  mat:3}, {x:1, y:-1, z:1,  mat:3},
+    {x:-1, y:-1, z:0,  mat:3}, {x:0, y:-1, z:0,  mat:3}, {x:1, y:-1, z:0,  mat:3},
+    {x:-1, y:-1, z:-1, mat:3}, {x:0, y:-1, z:-1, mat:3}, {x:1, y:-1, z:-1, mat:3},
+
+    // L Face (36..44, material index 1: -X)
+    {x:-1, y:1, z:-1,  mat:1}, {x:-1, y:1, z:0,  mat:1}, {x:-1, y:1, z:1,  mat:1},
+    {x:-1, y:0, z:-1,  mat:1}, {x:-1, y:0, z:0,  mat:1}, {x:-1, y:0, z:1,  mat:1},
+    {x:-1, y:-1, z:-1, mat:1}, {x:-1, y:-1, z:0, mat:1}, {x:-1, y:-1, z:1, mat:1},
+
+    // B Face (45..53, material index 5: -Z)
+    {x:1, y:1, z:-1,  mat:5}, {x:0, y:1, z:-1,  mat:5}, {x:-1, y:1, z:-1,  mat:5},
+    {x:1, y:0, z:-1,  mat:5}, {x:0, y:0, z:-1,  mat:5}, {x:-1, y:0, z:-1,  mat:5},
+    {x:1, y:-1, z:-1, mat:5}, {x:0, y:-1, z:-1, mat:5}, {x:-1, y:-1, z:-1, mat:5}
+];
+
+function applyFaceletColorsToCube(stateStr) {
+    for (let i = 0; i < 54; i++) {
+        const char = stateStr[i];
+        const hexColor = Colors[char];
+        if (!hexColor) continue;
+
+        const target = faceletToCubieMap[i];
+        // Find matching cubie at initial (x, y, z)
+        const cubie = cubies.find(c => 
+            Math.round(c.position.x) === target.x &&
+            Math.round(c.position.y) === target.y &&
+            Math.round(c.position.z) === target.z
+        );
+
+        if (cubie && cubie.material[target.mat]) {
+            cubie.material[target.mat].color.setHex(hexColor);
+        }
+    }
+}
+
+// --- 5. APP LOGIC & UI BINDINGS ---
 const scrambleInput = document.getElementById("scramble-input");
-let isSolved = true; // Tracks if the physical 3D cube is in a solved state
+let isSolved = true;
 
-// Utility: append move to text input
 function appendToScrambleStr(move) {
     if (isSolved) {
         scrambleInput.value = move;
@@ -180,6 +233,55 @@ function appendToScrambleStr(move) {
         const current = scrambleInput.value.trim();
         scrambleInput.value = current ? current + " " + move : move;
     }
+}
+
+// Check for scanned cube state from camera scanner
+let scannedCubeState = null;
+
+function initScannedStateIfPresent() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const state = urlParams.get('state') || localStorage.getItem('rubiks_scanned_state');
+
+    if (state && state.length === 54) {
+        scannedCubeState = state;
+        isSolved = false;
+
+        document.getElementById("status").innerText = "Scanned Cube Loaded! 📷";
+        document.getElementById("status").style.color = "#00ff88";
+
+        scrambleInput.value = "Scanned Physical Cube";
+        applyFaceletColorsToCube(state);
+
+        // Auto solve scanned cube
+        setTimeout(() => {
+            triggerSolve(state);
+        }, 600);
+    }
+}
+
+function triggerSolve(query) {
+    if (isAnimating || moveQueue.length > 0) return;
+
+    const t0 = performance.now();
+    const solutionStr = window.kociembaSolve(query);
+    const t1 = performance.now();
+
+    if (solutionStr.startsWith("Error")) {
+        document.getElementById("result-box").innerHTML = `<span style="color:red">${solutionStr}</span>`;
+        return;
+    }
+
+    const solutionMoves = solutionStr.split(' ');
+    moveQueue.push(...solutionMoves);
+    processQueue();
+
+    document.getElementById("result-box").innerHTML = 
+        `<strong>Solution (${solutionMoves.length} moves):</strong><br><br>${solutionStr}<br><br><em>Calculated in ${(t1 - t0).toFixed(2)} ms</em>`;
+    
+    scrambleInput.value = "";
+    isSolved = true;
+    scannedCubeState = null;
+    localStorage.removeItem('rubiks_scanned_state');
 }
 
 // Random Scramble Generator
@@ -198,7 +300,7 @@ document.getElementById("randomBtn").addEventListener("click", () => {
         do {
             randomMove = allMoves[Math.floor(Math.random() * allMoves.length)];
             face = randomMove[0];
-        } while (face === lastFace); // Prevent redundant moves like U U'
+        } while (face === lastFace);
         
         lastFace = face;
         sequence.push(randomMove);
@@ -221,36 +323,16 @@ document.querySelectorAll(".manual-move-btn").forEach(btn => {
 
 // Solve Button
 document.getElementById("solveBtn").addEventListener("click", () => {
-    if (isAnimating || moveQueue.length > 0) return;
-
-    const scramble = scrambleInput.value.trim();
-    if (!scramble) {
-        document.getElementById("result-box").innerHTML = `<span style="color:#aaa">Cube is already solved!</span>`;
-        return;
+    if (scannedCubeState) {
+        triggerSolve(scannedCubeState);
+    } else {
+        const scramble = scrambleInput.value.trim();
+        if (!scramble) {
+            document.getElementById("result-box").innerHTML = `<span style="color:#aaa">Cube is already solved!</span>`;
+            return;
+        }
+        triggerSolve(scramble);
     }
-
-    const t0 = performance.now();
-    const solutionStr = window.kociembaSolve(scramble);
-    const t1 = performance.now();
-
-    if (solutionStr.startsWith("Error")) {
-        document.getElementById("result-box").innerHTML = `<span style="color:red">${solutionStr}</span>`;
-        return;
-    }
-
-    // Process solution
-    const solutionMoves = solutionStr.split(' ');
-    
-    // Animate solution
-    moveQueue.push(...solutionMoves);
-    processQueue();
-
-    document.getElementById("result-box").innerHTML = 
-        `<strong>Solution (${solutionMoves.length} moves):</strong><br><br>${solutionStr}<br><br><em>Calculated in ${(t1 - t0).toFixed(2)} ms</em>`;
-    
-    // Clear the input because the physical cube will return to solved state
-    scrambleInput.value = "";
-    isSolved = true; 
 });
 
 // Render loop
