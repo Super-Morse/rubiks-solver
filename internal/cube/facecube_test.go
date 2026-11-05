@@ -71,6 +71,8 @@ func TestFromString_DirectSuccess(t *testing.T) {
 	if len(c.Facelets) != 54 {
 		t.Errorf("expected 54 facelets, got %d", len(c.Facelets))
 	}
+
+	_ = c
 }
 
 func TestFromFaceletString_InvalidLength(t *testing.T) {
