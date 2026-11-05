@@ -2,7 +2,7 @@
 
 An ultra-fast, interactive 3D Rubik's Cube application featuring a high-performance solver built with **Go (Golang)** and compiled to **WebAssembly (WASM)**. The front-end leverages **Three.js** for seamless, hardware-accelerated 3D rendering and smooth animations.
 
-🚀 **Live Demo:** [https://super-morse.github.io/rubiks-solver/](https://super-morse.github.io/rubiks-solver/)
+🚀 **Live Demo:** [https://super-morse.github.io/rubiks-solver](https://super-morse.github.io/rubiks-solver)
 
 ---
 
