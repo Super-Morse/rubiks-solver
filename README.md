@@ -65,7 +65,7 @@ To put this into perspective:
 ## ✨ Features
 
 - **Two-Phase Kociemba Algorithm:** Implements an optimized version of Herbert Kociemba's algorithm in pure Go, resolving complex scrambles within milliseconds.
-- **Physical Validity Check:** Scanned states are verified before solving — 9 stickers per color, correct centers, no duplicate pieces, corner twist sum divisible by 3, even edge flip, matching corner/edge permutation parity. Impossible scans (twisted corner, flipped edge, swapped pieces) get a clear error instead of a bogus solution.
+- **Physical Validity Check:** Cube states are verified before solving — 9 stickers per color, correct centers, no duplicate pieces, corner twist sum divisible by 3, even edge flip, matching corner/edge permutation parity. Impossible scans (twisted corner, flipped edge, swapped pieces) get a clear error instead of a bogus solution.
 - **Pure Client-Side Execution:** Zero server-side overhead. Heavy algorithmic processing runs natively in the browser via compiled WebAssembly binary.
 - **Hardware-Accelerated 3D View:** Smooth cube rotations, orbital controls, and face turn animations powered by Three.js.
 - **Advanced Mobile UX:** Responsive layouts designed to lock action panels on the viewport floor. Fully optimized for small displays like iPhone SE.
