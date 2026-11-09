@@ -50,7 +50,9 @@ func TestFromFaceletString_TwistedCornerAndFlippedEdge(t *testing.T) {
 	b[5] = 'R'
 	b[10] = 'U'
 
-	cc, err := FromFaceletString(string(b))
+	// A single twisted corner/flipped edge is not physically reachable, so test
+	// the raw mapping (FromString + ToCubieCube) without reachability checks.
+	cc, err := mustParseRaw(t, string(b))
 	if err != nil {
 		t.Fatalf("unexpected error for twisted/flipped piece: %v", err)
 	}
@@ -96,23 +98,35 @@ func TestFromFaceletString_InvalidCharacters(t *testing.T) {
 
 func TestFromFaceletString_ImpossibleCornerPiece(t *testing.T) {
 	// Corrupt a corner so its colors don't match any of the 8 real corners
+	// Swap the R sticker of URF (9) with the D sticker of the DF edge (28):
+	// color counts stay at 9 each, URF becomes {U, D, F} (impossible), and
+	// DF becomes {R, F} (a real edge), so only the corner check can fail.
 	b := []byte(solvedFacelets)
-	b[9] = 'D' // URF corner now has U and D on the same corner piece (impossible)
+	b[9], b[28] = b[28], b[9]
 
 	_, err := FromFaceletString(string(b))
 	if err == nil {
 		t.Fatal("expected error for physically impossible corner piece, got nil")
 	}
+	if !strings.Contains(err.Error(), "invalid corner piece") {
+		t.Errorf("expected invalid corner piece error, got: %v", err)
+	}
 }
 
 func TestFromFaceletString_ImpossibleEdgePiece(t *testing.T) {
 	// Corrupt an edge so its colors don't match any of the 12 real edges
+	// Swap the R sticker of the UR edge (10) with the D sticker of the DF
+	// edge (28): color counts stay at 9 each, UR becomes {U, D} (impossible)
+	// and DF becomes {R, F} (a real edge), so only the edge check can fail.
 	b := []byte(solvedFacelets)
-	b[10] = 'D' // UR edge now has U and D on the same edge piece (impossible)
+	b[10], b[28] = b[28], b[10]
 
 	_, err := FromFaceletString(string(b))
 	if err == nil {
 		t.Fatal("expected error for physically impossible edge piece, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid edge piece") {
+		t.Errorf("expected invalid edge piece error, got: %v", err)
 	}
 }
 
@@ -134,7 +148,8 @@ func TestFromFaceletString_FL_BL_EdgeMapping(t *testing.T) {
 	b[23] = 'F'
 	b[12] = 'L'
 
-	cc, err := FromFaceletString(string(b))
+	// A single edge swap is a parity error, so test the raw mapping only.
+	cc, err := mustParseRaw(t, string(b))
 	if err != nil {
 		t.Fatalf("regression failed: FL/BL edge indices cross-wired: %v", err)
 	}
@@ -176,4 +191,14 @@ func TestFromFaceletString_RealWorldScrambledCube(t *testing.T) {
 	if cc.EP[UR] != UB {
 		t.Errorf("expected edge at UR to be UB, got: %v", cc.EP[UR])
 	}
+}
+
+// mustParseRaw parses facelets and converts to cubies WITHOUT reachability checks.
+func mustParseRaw(t *testing.T, s string) (*CubieCube, error) {
+	t.Helper()
+	c, err := FromString(s)
+	if err != nil {
+		return nil, err
+	}
+	return c.ToCubieCube()
 }

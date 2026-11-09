@@ -147,11 +147,23 @@ func (c *Cube) ToCubieCube() (*CubieCube, error) {
 	return cc, nil
 }
 
-// FromFaceletString is a shortcut that parses string to Cube and converts to CubieCube.
+// FromFaceletString parses a 54-character Kociemba string, converts it to a
+// CubieCube and verifies that the result is a physically reachable cube state.
+// Use FromString + ToCubieCube directly to skip the reachability checks.
 func FromFaceletString(s string) (*CubieCube, error) {
 	cube, err := FromString(s)
 	if err != nil {
 		return nil, err
 	}
-	return cube.ToCubieCube()
+	if err := cube.Verify(); err != nil {
+		return nil, err
+	}
+	cc, err := cube.ToCubieCube()
+	if err != nil {
+		return nil, err
+	}
+	if err := cc.Verify(); err != nil {
+		return nil, err
+	}
+	return cc, nil
 }
